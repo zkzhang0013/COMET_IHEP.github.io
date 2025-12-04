@@ -87,7 +87,7 @@
             <div class="param-control">
                 <label>κ=q/pt:</label>
                 <input type="range" id="kappa-slider" min="0.1" max="2" step="0.1" value="0.8">
-                <span id="kappa-value">0.8</span>
+                <span id="kappa-value">0.4</span>
             </div>
 
             <div class="param-control">
@@ -169,7 +169,8 @@
 
         // =================== 物理参数 ===================
         let params = {
-            kappa: 0.08,      // curvature κ = q/pt
+            q: -1,          // 电荷 q
+            kappa: 0.4,      // curvature κ = q/pt
             psi: 30,        // ψ angle that px,py make with X axis in XY plane
             phi0: 45,        // φ angle that point P makes with X axis in XY plane
             lambda: 0.5,    // λ = pz/pt
@@ -214,14 +215,14 @@
             return sphere;
         }
 
-        // 3. 创建径迹（yellow曲线）- 根据新的螺旋线公式
+        // 3. 创建径迹- 根据新的螺旋线公式
         function createTrack() {
             // 计算点P的位置（圆柱表面）
             const phiRad = THREE.MathUtils.degToRad(params.phi0);
 
             // 点P在圆柱表面
-            const xP = params.cylinder_radius * Math.cos(phiRad);
-            const yP = params.cylinder_radius * Math.sin(phiRad);
+            const x0 = params.cylinder_radius * Math.cos(phiRad);
+            const y0 = params.cylinder_radius * Math.sin(phiRad);
             const zP = params.z0; // 在圆柱中间高度
 
             // 计算螺旋径迹参数
@@ -249,8 +250,8 @@
                 const theta = k * t;
 
                 // 螺旋线方程
-                const x = xP + (Math.sin(theta + psiRad) - Math.sin(psiRad)) * R / pT;
-                const y = yP + (Math.cos(psiRad) - Math.cos(theta + psiRad)) * R / pT;
+                const x = x0 + (Math.sin(theta + psiRad) - Math.sin(psiRad)) * R / pT;
+                const y = y0 + (Math.cos(psiRad) - Math.cos(theta + psiRad)) * R / pT;
                 const z = zP + params.lambda * theta * R;
 
                 points.push(new THREE.Vector3(x, y, z));
@@ -265,7 +266,7 @@
             return new THREE.Line(geometry, material);
         }
 
-        // 4. 创建φ角（绿色弧线）- 点P在圆柱上的位置
+        // 4. 创建φ角 - 点P在圆柱上的位置
         function createPhiArc() {
             const phiRad = THREE.MathUtils.degToRad(params.phi0);
             const points = [];
@@ -290,7 +291,7 @@
             return new THREE.Line(geometry, material);
         }
 
-        // 5. 创建ψ角（粉色弧线）- px,py夹角
+        // 5. 创建ψ角- px,py夹角
         function createPsiArc() {
             const phiRad = THREE.MathUtils.degToRad(params.phi0);
             const psiRad = THREE.MathUtils.degToRad(params.psi);
@@ -298,8 +299,8 @@
             const segments = 30;
 
             // 点P的位置
-            const xP = params.cylinder_radius * Math.cos(phiRad);
-            const yP = params.cylinder_radius * Math.sin(phiRad);
+            const x0 = params.cylinder_radius * Math.cos(phiRad);
+            const y0 = params.cylinder_radius * Math.sin(phiRad);
             const zP = 0;
 
             // 在XY平面内绘制ψ角
@@ -321,8 +322,8 @@
                 const y = arcRadius * Math.sin(angle);
 
                 points.push(new THREE.Vector3(
-                    xP + x,
-                    yP + y,
+                    x0 + x,
+                    y0 + y,
                     zP + 0.1 // 稍微抬高
                 ));
             }
@@ -334,6 +335,43 @@
             });
 
             return new THREE.Line(geometry, material);
+        }
+
+        function createLambdaArc(pz,pt) {
+            const points = [];
+            const segments = 30;
+
+            // 点P的位置
+            const phiRad = THREE.MathUtils.degToRad(params.phi0);
+            //const pt = params.kappa !== 0 ? 1 / Math.abs(params.kappa) : 10; // 避免除以零
+            //const x = pt * Math.cos(THREE.MathUtils.degToRad(params.psi));
+            //const y = pt * Math.sing(THREE.MathUtils.degToRad(params.psi));
+            //const z = params.z0;
+
+            //// 在Z方向绘制λ角
+            //const arcRadius = params.lambda;
+
+            //for (let i = 0; i <= segments; i++) {
+            //    const t = (i / segments) * Math.atan(params.lambda);
+
+            //    // 从XY平面开始，旋转λ角
+            //    const x = arcRadius * Math.cos(t);
+            //    const z = arcRadius * Math.sin(t);
+
+            //    points.push(new THREE.Vector3(
+            //        x0 + x,
+            //        y0,
+            //        zP + z + 0.1 // 稍微抬高
+            //    ));
+            //}
+
+            //const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            //const material = new THREE.LineBasicMaterial({
+            //    color: COLOR_NUDE_PINK,
+            //    linewidth: 2
+            //});
+
+            //return new THREE.Line(geometry, material);
         }
 
         // 6. 创建Y平面（灰色半透明平面）
@@ -398,8 +436,8 @@
 
             // 点P的位置
             const phiRad = THREE.MathUtils.degToRad(params.phi0);
-            const xP = params.cylinder_radius * Math.cos(phiRad);
-            const yP = params.cylinder_radius * Math.sin(phiRad);
+            const x0 = params.cylinder_radius * Math.cos(phiRad);
+            const y0 = params.cylinder_radius * Math.sin(phiRad);
             const zP = 0;
 
             return group;
@@ -435,7 +473,7 @@
             group.add(createLabel('Y', new THREE.Vector3(0.5, axisLength - 0.2, 0), COLOR_PINE_GREEN));
             group.add(createLabel('Z', new THREE.Vector3(0, 0, axisLength + 0.2), COLOR_MIST_BLUE));
             group.add(createLabel('O', new THREE.Vector3(0.5, 0.5, 0), COLOR_GRAY));
-            group.add(createLabel("X-Plane", new THREE.Vector3(8, 1, 0), x_plane_color = COLOR_GRAY));
+            group.add(createLabel("XZ-Plane", new THREE.Vector3(8, 2, 0), x_plane_color = COLOR_GRAY));
 
 
             return group;
@@ -449,10 +487,16 @@
             const psiRad = THREE.MathUtils.degToRad(params.psi);
 
             // 点P的位置（3D圆柱坐标）
-            const xP = params.cylinder_radius * Math.cos(phiRad);
-            const yP = params.cylinder_radius * Math.sin(phiRad);
+            const x0 = params.cylinder_radius * Math.cos(phiRad);
+            const y0 = params.cylinder_radius * Math.sin(phiRad);
             const zP = params.z0;
 
+            //pxyz,pt
+            const pt = params.kappa !== 0 ? 1 / Math.abs(params.kappa) : 10; // 避免除以零
+            const p = Math.sqrt(pt * pt + (params.lambda * pt) * (params.lambda * pt));
+            const px = pt * Math.cos(psiRad);
+            const py = pt * Math.sin(psiRad);
+            const pz = params.lambda * pt;
 
             // 动量方向向量（ψ相对于径向方向）
             const momentumDir = new THREE.Vector3(
@@ -460,9 +504,24 @@
                 Math.sin(psiRad),
                 params.lambda
             ).normalize();
+            const pxDir = new THREE.Vector3(
+                px,
+                0,
+                0
+            ).normalize();
+            const pyDir = new THREE.Vector3(
+                0,
+                py,
+                0
+            ).normalize();
+            const pzDir = new THREE.Vector3(
+                0,
+                0,
+                pz
+            ).normalize();
 
-            const momentumLength = 3;
-            const arrowOrigin = new THREE.Vector3(xP, yP, zP);
+            const momentumLength = p;
+            const arrowOrigin = new THREE.Vector3(x0, y0, zP);
 
             //  使用 ArrowHelper 自动处理3D方向
             const arrowHelper = new THREE.ArrowHelper(
@@ -473,43 +532,127 @@
                 momentumLength * 0.1,  // 箭头长度
                 momentumLength * 0.05  // 箭头宽度
             );
+            const pxArrowHelper = new THREE.ArrowHelper(
+                pxDir,           // 方向（已归一化）
+                arrowOrigin,           // 起点
+                px, // 长度
+                COLOR_SOFT_RED,              // 颜色
+                0.2,  // 箭头长度
+                0.2  // 箭头宽度
+            );
+            const pyArrowHelper = new THREE.ArrowHelper(
+                pyDir,           // 方向（已归一化）
+                arrowOrigin,           // 起点
+                py,// 长度
+                COLOR_PINE_GREEN,              // 颜色
+                0.2,  // 箭头长度
+                0.2  // 箭头宽度
+            );
+            const pzArrowHelper = new THREE.ArrowHelper(
+                pzDir,           // 方向（已归一化）
+                arrowOrigin,           // 起点
+                pz, // 长度
+                COLOR_MIST_BLUE,              // 颜色
+                0.2,  // 箭头长度
+                0.2  // 箭头宽度
+            );
+            const ptArrowHelper = new THREE.ArrowHelper(
+                new THREE.Vector3(
+                    Math.cos(psiRad),
+                    Math.sin(psiRad),
+                    0
+                ).normalize(),           // 方向（已归一化）
+                arrowOrigin,           // 起点
+                pt, // 长度
+                COLOR_LAKE_CYAN,              // 颜色
+                0.2,  // 箭头长度
+                0.2  // 箭头宽度
+            );
+            // a dashed line from point of pt to point of p
+            const pz2ptLine = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(
+                    x0 + px,
+                    y0 + py,
+                    zP + 0
+                ),
+                new THREE.Vector3(
+                    x0,
+                    y0,
+                    zP + pz,
+                )
+                ]),
+                new THREE.LineDashedMaterial({
+                    color: COLOR_LAKE_CYAN,
+                    dashSize: 1,
+                    gapSize: 2,
+                    linewidth: LINEWIDTH
+                })
+            );
             group.add(arrowHelper);
+            group.add(pxArrowHelper);
+            group.add(pyArrowHelper);
+            group.add(pzArrowHelper);
+            group.add(ptArrowHelper);
+            group.add(pz2ptLine);
+
 
             // 添加各个标签
             group.add(createLabel("p", new THREE.Vector3(
-                xP + momentumDir.x * (momentumLength + 0.5),
-                yP + momentumDir.y * (momentumLength + 0.5),
+                x0 + momentumDir.x * (momentumLength + 0.5),
+                y0 + momentumDir.y * (momentumLength + 0.5),
                 zP + momentumDir.z * (momentumLength + 0.5)
             ), COLOR_WARM_ORANGE));
             group.add(createLabel("φ=" + params.phi0 + "°",
                 new THREE.Vector3(
-                    (params.cylinder_radius + 1) * Math.cos(phiRad / 2),
-                    (params.cylinder_radius + 1) * Math.sin(phiRad / 2),
+                    (params.cylinder_radius + 0.6) * Math.cos(phiRad / 2),
+                    (params.cylinder_radius + 0.6) * Math.sin(phiRad / 2),
                     0.2
                 ), COLOR_PINE_GREEN));
             group.add(createLabel("ψ=" + params.psi + "°",
                 new THREE.Vector3(
-                    xP + 1.5 * Math.cos(psiRad / 2),
-                    yP + 1.5 * Math.sin(psiRad / 2),
+                    x0 + 2.1 * Math.cos(psiRad / 2),
+                    y0 + 2.1 * Math.sin(psiRad / 2),
                     0.2
-                ), COLOR_SAND_BROWN));
+                ), COLOR_SOFT_RED));
             group.add(createLabel("λ=" + params.lambda.toFixed(1), new THREE.Vector3(
-                xP + 0.5,
-                yP + 1,
-                zP + params.lambda * 1.5
-            ), COLOR_NUDE_PINK));
+                x0 + (Math.cos(psiRad)) * (pt + 0.8),
+                y0 + (Math.sin(psiRad)) * (pt + 0.8),
+                zP - 0.5
+            ), COLOR_LAKE_CYAN));
 
             group.add(createLabel("z0=" + params.z0.toFixed(1), new THREE.Vector3(
-                xP + 0.5,
-                yP + 0.5,
+                x0 + 1.,
+                y0 - 0.2,
                 zP
-            ), COLOR_ASH_PURPLE));
+            ), COLOR_MIST_BLUE));
+            group.add(createLabel("px", new THREE.Vector3(
+                x0 + pxDir.x * (px + 0.5),
+                y0 + pxDir.y * (px + 0.5),
+                zP + pxDir.z * (px + 0.5)
+            ), COLOR_SOFT_RED));
+            group.add(createLabel("py", new THREE.Vector3(
+                x0 + pyDir.x * (py + 0.5),
+                y0 + pyDir.y * (py + 0.5),
+                zP + pyDir.z * (py + 0.5)
+            ), COLOR_PINE_GREEN));
+            group.add(createLabel("pz", new THREE.Vector3(
+                x0 + pzDir.x * (pz + 0.5) + 0.5,
+                y0 + pzDir.y * (pz + 0.5),
+                zP + pzDir.z * (pz + 0.5)
+            ), COLOR_MIST_BLUE));
+            group.add(createLabel("pt", new THREE.Vector3(
+                x0 + (Math.cos(psiRad)) * (pt + 0.5),
+                y0 + (Math.sin(psiRad)) * (pt + 0.5),
+                zP + 0.2
+            ), COLOR_LAKE_CYAN));
+
 
             return group;
         }
 
         // =================== 初始化场景 ===================
-        let detectorCylinder, pointP, track, phiArc, psiArc, yPlane, labels, axes, momentumIndicator;
+        let detectorCylinder, pointP, track, phiArc, psiArc, lambdaArc, yPlane, labels, axes, momentumIndicator;
 
         function initScene() {
             // 清除旧元素
@@ -518,6 +661,7 @@
             if (track) scene.remove(track);
             if (phiArc) scene.remove(phiArc);
             if (psiArc) scene.remove(psiArc);
+            if (lambdaArc) scene.remove(lambdaArc);
             if (yPlane) scene.remove(yPlane);
             if (labels) scene.remove(labels);
             if (axes) scene.remove(axes);
@@ -529,6 +673,7 @@
             track = createTrack();
             phiArc = createPhiArc();
             psiArc = createPsiArc();
+            lambdaArc = createLambdaArc();
             yPlane = createYPlane();
             labels = createTextLabels();
             axes = createCoordinateAxes();
@@ -536,9 +681,9 @@
 
             // 计算点P的位置并设置
             const phiRad = THREE.MathUtils.degToRad(params.phi0);
-            const xP = params.cylinder_radius * Math.cos(phiRad);
-            const yP = params.cylinder_radius * Math.sin(phiRad);
-            pointP.position.set(xP, yP, 0);
+            const x0 = params.cylinder_radius * Math.cos(phiRad);
+            const y0 = params.cylinder_radius * Math.sin(phiRad);
+            pointP.position.set(x0, y0, 0);
 
             // 添加到场景
             scene.add(detectorCylinder);
@@ -546,6 +691,7 @@
             scene.add(track);
             scene.add(phiArc);
             scene.add(psiArc);
+            scene.add(lambdaArc);
             scene.add(yPlane);
             scene.add(labels);
             scene.add(axes);
@@ -599,7 +745,7 @@
         });
 
         document.getElementById('reset-all').addEventListener('click', () => {
-            params.kappa = 0.8;
+            params.kappa = 0.4;
             params.psi = 30;
             params.phi0 = 45;
             params.lambda = 0.5;
@@ -657,11 +803,11 @@
                 const R = 1 / (2 * Math.abs(params.kappa));
                 const psiRad = THREE.MathUtils.degToRad(params.psi);
                 const phiRad = THREE.MathUtils.degToRad(params.phi0);
-                const xP = params.cylinder_radius * Math.cos(phiRad);
-                const yP = params.cylinder_radius * Math.sin(phiRad);
+                const x0 = params.cylinder_radius * Math.cos(phiRad);
+                const y0 = params.cylinder_radius * Math.sin(phiRad);
                 const pT = 1; // 归一化
-                const x = xP + (Math.sin(theta + psiRad) - Math.sin(psiRad)) * R / pT;
-                const y = yP + (Math.cos(psiRad) - Math.cos(theta + psiRad)) * R / pT;
+                const x = x0 + (Math.sin(theta + psiRad) - Math.sin(psiRad)) * R / pT;
+                const y = y0 + (Math.cos(psiRad) - Math.cos(theta + psiRad)) * R / pT;
                 pts2D.push(new THREE.Vector3(x, y, 0)); // z=0 放在 XY 平面
             }
             xyTrack = new THREE.Line(
@@ -672,11 +818,11 @@
             /* 2. 动量箭头投影 */
             const phiRad = THREE.MathUtils.degToRad(params.phi0);
             const psiRad = THREE.MathUtils.degToRad(params.psi);
-            const xP = params.cylinder_radius * Math.cos(phiRad);
-            const yP = params.cylinder_radius * Math.sin(phiRad);
+            const x0 = params.cylinder_radius * Math.cos(phiRad);
+            const y0 = params.cylinder_radius * Math.sin(phiRad);
             const dir2D = new THREE.Vector3(Math.cos(psiRad), Math.sin(psiRad), 0);
             xyPArr = new THREE.ArrowHelper(
-                dir2D, new THREE.Vector3(xP, yP, 0),
+                dir2D, new THREE.Vector3(x0, y0, 0),
                 2.5, COLOR_WARM_ORANGE, 0.4, 0.2);
             xyScene.add(xyPArr);
 
@@ -699,8 +845,8 @@
             for (let i = 0; i <= 20; i++) {
                 const a = (i / 20) * psiRad;
                 psiPts.push(new THREE.Vector3(
-                    xP + arcR * Math.cos(a),
-                    yP + arcR * Math.sin(a), 0));
+                    x0 + arcR * Math.cos(a),
+                    y0 + arcR * Math.sin(a), 0));
             }
             xyPsiArc = new THREE.Line(
                 new THREE.BufferGeometry().setFromPoints(psiPts),
@@ -730,7 +876,7 @@
         });
 
         // 初始状态
-        //updateStatus('高能物理探测器几何与粒子径迹可视化 - ψ为px,py夹角，λ=pz/pt');
+        updateStatus('test');
     </script>
 
 </body>
