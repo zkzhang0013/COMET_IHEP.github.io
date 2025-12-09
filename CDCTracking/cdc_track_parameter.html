@@ -116,10 +116,26 @@
 
             <div> Author: Yao Zhang (zhangyao@ihep.ac.cn)</div>
         </div>
+        <div class="control-group">
+            <label style="color:#4fc3f7; display:inline-block; width:80px;">XY Size:</label>
+            <input type="range" id="xy-size-slider" min="120" max="800" step="10" value="340" style="vertical-align:middle;">
+            <span id="xy-size-value" style="color:#fff; margin-left:8px;">340px</span>
+        </div>
+        <div class="control-group">
+            <label style="color:#4fc3f7; display:inline-block; width:80px;">XY Elements:</label>
+            <div style="display:inline-block; vertical-align:middle;">
+                <label style="color:#fff; margin-right:6px;"><input type="checkbox" id="chk-track" checked>Track</label>
+                <label style="color:#fff; margin-right:6px;"><input type="checkbox" id="chk-momentum" checked>p</label>
+                <label style="color:#fff; margin-right:6px;"><input type="checkbox" id="chk-phi" checked>φ</label>
+                <label style="color:#fff; margin-right:6px;"><input type="checkbox" id="chk-psi" checked>ψ</label>
+                <label style="color:#fff; margin-right:6px;"><input type="checkbox" id="chk-labels" checked>Labels</label>
+            </div>
+            <button id="xy-reset-btn" style="margin-left:8px;">Reset XY</button>
+        </div>
     </div>
-    <canvas id="xyCanvas" width="200" height="200" style="position:absolute; bottom:20px; right:20px;
-       border:1px solid #4fc3f7; background:#000a;">
-    </canvas>
+     <canvas id="xyCanvas" width="340" height="340" style="position:absolute; bottom:20px; right:20px;
+         border:1px solid #4fc3f7; background:#000a; width:340px; height:340px;">
+     </canvas>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
@@ -391,7 +407,9 @@
             return plane;
         }
 
-        function createLabel(text, position, color = 0xffffff) {
+        // createLabel: 可选传入 scale 参数用于在小窗中按像素宽度自适应标签大小
+        // scale: 如果为 null 则使用默认 (1.5, 0.75)，否则设置为 (scale, scale*0.5)
+        function createLabel(text, position, color = 0xffffff, scale = null) {
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
 
@@ -422,8 +440,12 @@
             });
             const sprite = new THREE.Sprite(material);
 
-            // 调整缩放（根据画布大小）
-            sprite.scale.set(1.5, 0.75, 1);
+            // 调整缩放：保持默认纵横比 (2:1)
+            if (scale === null) {
+                sprite.scale.set(1.5, 0.75, 1);
+            } else {
+                sprite.scale.set(scale, scale * 0.5, 1);
+            }
             sprite.position.copy(position);
 
             return sprite;
@@ -780,18 +802,88 @@
             -6, 6,   // left, right
             6, -6,  // top, bottom
             -1, 20);
+        const xyCanvas = document.getElementById('xyCanvas');
         const xyRenderer = new THREE.WebGLRenderer({
-            canvas: document.getElementById('xyCanvas'),
+            canvas: xyCanvas,
             alpha: true
         });
-        xyRenderer.setSize(200, 200);
+        // responsive renderer size (initially matches canvas CSS size)
+        function updateXYRendererSize() {
+            const cssW = xyCanvas.clientWidth || xyCanvas.width || 340;
+            const cssH = xyCanvas.clientHeight || xyCanvas.height || 340;
+            // set device pixel ratio aware size for crisp rendering
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            xyRenderer.setPixelRatio(dpr);
+            xyRenderer.setSize(Math.floor(cssW), Math.floor(cssH), false);
+            // update camera aspect/viewport if needed (not necessary for orthographic, but update projection)
+            xyCam.updateProjectionMatrix();
+        }
+        updateXYRendererSize();
+
+        // bind UI slider if present
+        const xySizeSlider = document.getElementById('xy-size-slider');
+        const xySizeValue = document.getElementById('xy-size-value');
+        if (xySizeSlider && xyCanvas) {
+            xySizeSlider.addEventListener('input', (e) => {
+                const v = parseInt(e.target.value, 10);
+                xySizeValue.textContent = v + 'px';
+                xyCanvas.style.width = v + 'px';
+                xyCanvas.style.height = v + 'px';
+                updateXYRendererSize();
+            });
+        }
+
+        // element visibility controls
+        const chkTrack = document.getElementById('chk-track');
+        const chkMomentum = document.getElementById('chk-momentum');
+        const chkPhi = document.getElementById('chk-phi');
+        const chkPsi = document.getElementById('chk-psi');
+        const chkLabels = document.getElementById('chk-labels');
+
+        // reset XY size button
+        const xyResetBtn = document.getElementById('xy-reset-btn');
+        if (xyResetBtn) {
+            xyResetBtn.addEventListener('click', () => {
+                const def = 340;
+                if (xySizeSlider) {
+                    xySizeSlider.value = def;
+                    xySizeValue.textContent = def + 'px';
+                }
+                xyCanvas.style.width = def + 'px';
+                xyCanvas.style.height = def + 'px';
+                updateXYRendererSize();
+                updateStatus('XY size reset');
+            });
+        }
 
         // 纯色背景
         xyScene.background = new THREE.Color(COLOR_WHITE);
 
+        // labels group for small window
+        const xyLabelsGroup = new THREE.Group();
+        xyScene.add(xyLabelsGroup);
+        // axes group for small window
+        const xyAxesGroup = new THREE.Group();
+        xyScene.add(xyAxesGroup);
+
+        function updateXYCameraBounds() {
+            // choose extent to cover detector and some padding
+            const extent = Math.max(Math.abs(params.cylinder_radius) + 3, 6);
+            xyCam.left = -extent;
+            xyCam.right = extent;
+            xyCam.top = extent;
+            xyCam.bottom = -extent;
+            xyCam.updateProjectionMatrix();
+        }
+
         function buildXYProjections() {
+            // ensure camera covers scene
+            updateXYCameraBounds();
+
             // 清旧对象
             [xyTrack, xyPArr, xyPhiArc, xyPsiArc].forEach(o => o && xyScene.remove(o));
+            while (xyLabelsGroup.children.length) xyLabelsGroup.remove(xyLabelsGroup.children[0]);
+            while (xyAxesGroup.children.length) xyAxesGroup.remove(xyAxesGroup.children[0]);
 
             /* 1. 径迹投影（只取 x,y） */
             const pts2D = [];
@@ -813,7 +905,7 @@
             xyTrack = new THREE.Line(
                 new THREE.BufferGeometry().setFromPoints(pts2D),
                 new THREE.LineBasicMaterial({ color: COLOR_SOFT_RED, linewidth: 2 }));
-            xyScene.add(xyTrack);
+            if (!chkTrack || chkTrack.checked) xyScene.add(xyTrack);
 
             /* 2. 动量箭头投影 */
             const phiRad = THREE.MathUtils.degToRad(params.phi0);
@@ -824,7 +916,7 @@
             xyPArr = new THREE.ArrowHelper(
                 dir2D, new THREE.Vector3(x0, y0, 0),
                 2.5, COLOR_WARM_ORANGE, 0.4, 0.2);
-            xyScene.add(xyPArr);
+            if (!chkMomentum || chkMomentum.checked) xyScene.add(xyPArr);
 
             /* 3. φ 弧投影 */
             const phiPts = [];
@@ -837,7 +929,7 @@
             xyPhiArc = new THREE.Line(
                 new THREE.BufferGeometry().setFromPoints(phiPts),
                 new THREE.LineBasicMaterial({ color: COLOR_PINE_GREEN }));
-            xyScene.add(xyPhiArc);
+            if (!chkPhi || chkPhi.checked) xyScene.add(xyPhiArc);
 
             /* 4. ψ 弧投影 */
             const psiPts = [];
@@ -851,7 +943,59 @@
             xyPsiArc = new THREE.Line(
                 new THREE.BufferGeometry().setFromPoints(psiPts),
                 new THREE.LineBasicMaterial({ color: COLOR_SAND_BROWN }));
-            xyScene.add(xyPsiArc);
+            if (!chkPsi || chkPsi.checked) xyScene.add(xyPsiArc);
+
+            // ----- 添加 XY 轴（带箭头与标签） -----
+            try {
+                const extent = Math.max(Math.abs(params.cylinder_radius) + 3, 6);
+                // compute label scale based on current xy canvas width (base: 340px => scale 1.5)
+                const baseCanvas = 340;
+                const canvasW = xyCanvas ? (xyCanvas.clientWidth || xyCanvas.width || baseCanvas) : baseCanvas;
+                const xyScale = 1.5 * (canvasW / baseCanvas);
+
+                // X axis
+                const xArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), extent - 1, COLOR_SOFT_RED, 0.4, 0.2);
+                xyAxesGroup.add(xArrow);
+                xyAxesGroup.add(createLabel('X', new THREE.Vector3(extent - 0.6, 0.25, 0), COLOR_SOFT_RED, xyScale));
+
+                // Y axis
+                const yArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), extent - 1, COLOR_PINE_GREEN, 0.4, 0.2);
+                xyAxesGroup.add(yArrow);
+                xyAxesGroup.add(createLabel('Y', new THREE.Vector3(0.25, extent - 0.6, 0), COLOR_PINE_GREEN, xyScale));
+            } catch (e) {
+                console.warn('xy axes failed', e);
+            }
+
+            // ----- 添加标签 (P, p, φ, ψ, track) -----
+            try {
+                // point P label
+                const phiRad = THREE.MathUtils.degToRad(params.phi0);
+                const x0 = params.cylinder_radius * Math.cos(phiRad);
+                const y0 = params.cylinder_radius * Math.sin(phiRad);
+                if (!chkLabels || chkLabels.checked) xyLabelsGroup.add(createLabel('P', new THREE.Vector3(x0 + 0.12, y0 + 0.12, 0), COLOR_MIST_BLUE, xyScale));
+
+                // momentum label near arrow tip
+                const psiRad = THREE.MathUtils.degToRad(params.psi);
+                const dir2D = new THREE.Vector3(Math.cos(psiRad), Math.sin(psiRad), 0);
+                if (!chkLabels || chkLabels.checked) xyLabelsGroup.add(createLabel('p', new THREE.Vector3(x0 + dir2D.x * 2.6, y0 + dir2D.y * 2.6, 0), COLOR_WARM_ORANGE, xyScale));
+
+                // φ label placed on the φ arc
+                const phiLabelPos = new THREE.Vector3((params.cylinder_radius + 0.6) * Math.cos(phiRad / 2), (params.cylinder_radius + 0.6) * Math.sin(phiRad / 2), 0);
+                if (!chkLabels || chkLabels.checked) xyLabelsGroup.add(createLabel('φ', phiLabelPos, COLOR_PINE_GREEN, xyScale));
+
+                // ψ label on psi arc
+                const arcR = 1.5;
+                const psiLabelPos = new THREE.Vector3(x0 + arcR * Math.cos(psiRad / 2), y0 + arcR * Math.sin(psiRad / 2), 0);
+                if (!chkLabels || chkLabels.checked) xyLabelsGroup.add(createLabel('ψ', psiLabelPos, COLOR_SOFT_RED, xyScale));
+
+                // track label at midpoint
+                if (pts2D.length && (!chkLabels || chkLabels.checked)) {
+                    const mid = pts2D[Math.floor(pts2D.length / 2)];
+                    xyLabelsGroup.add(createLabel('track', new THREE.Vector3(mid.x + 0.12, mid.y + 0.12, 0), COLOR_SOFT_RED, xyScale));
+                }
+            } catch (e) {
+                console.warn('xy labeling failed', e);
+            }
         }
 
         // -------- 构建 2D 线条/箭头的空壳 --------
@@ -873,6 +1017,8 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            // also update small window renderer size to match CSS
+            updateXYRendererSize();
         });
 
         // 初始状态
