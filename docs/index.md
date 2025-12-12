@@ -1,3 +1,6 @@
+<script> window.MathJax = { tex: { inlineMath: [['$','$'], ['\\(','\\)']], displayMath: [['$$','$$'], ['\\[','\\]']] } }; </script> <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+
 ---
 title: "COMET CDC Track Parameter"
 layout: default
@@ -12,7 +15,7 @@ This document describes the definitions of track parameter used for CDC (Cylindr
 ## 1. Coordinate System
 The coordinate system is righthanded. We have two coordinate systems, one is the global coordinate system, with the origin on the proton target; the other is CyDet local coordinate system, with the origin at the center of CDC. The center of CDC’s coordinates in the global coordinate system are (6739.95, 0, 7650) mm. The beam direction is the +z direction, and the +y points vertically upward. The azimuthal angle $\phi$ is defined as zero on the x axis and increases towards the y axis. The domain of $\phi$ is [0, 2π].
 
-![figure1 coordinate](../docs/assets/coordinate.png "figure1")
+![figure1 coordinate](./assets/coordinate.png)
 
 ## 2. Track parameters
 The track parameters for CDC track reconstruction is defined as the parameters at the first intersection point between the track and the inner wall of CDC. Therefore, it is located on a circle with a radius of r in the x-y plane, where r is the inner wall radius of CDC. It's a constant. So we can use the following five parameters to describe the position and momentum information of the track:
